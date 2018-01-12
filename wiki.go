@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/go-redis/redis"
 	"html/template"
 	"io/ioutil"
 	"net/http"
@@ -115,7 +116,38 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 	}
 }
 
+var client = redis.NewClient(&redis.Options{
+	Addr:     "localhost:6379",
+	Password: "", // no password set
+	DB:       1,  // use default DB
+})
+
+func redisCmds() {
+	// client := redis.NewClient(&redis.Options{
+	// 	Addr:     "localhost:6379",
+	// 	Password: "", // no password set
+	// 	DB:       1,  // use default DB
+	// })
+	// clientt := reflect.TypeOf(client).Kind()
+	// fmt.Println(clientt)
+	pong, err := client.Ping().Result()
+	fmt.Println(pong, err)
+	err = client.Set("key", "value", 0).Err()
+	if err != nil {
+		panic(err)
+	}
+	// list keys
+	keys, _ := client.Keys("*").Result()
+	fmt.Println("keys", keys)
+	fmt.Println("values", len(keys))
+	for _, k := range keys {
+		value, _ := client.Get(k).Result()
+		fmt.Println(value)
+	}
+}
+
 func main() {
+	redisCmds()
 	http.HandleFunc(indexPage, indexHandler)
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
