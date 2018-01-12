@@ -1,15 +1,20 @@
 package main
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/go-redis/redis"
+	// "github.com/go-redis/redis"
 	"html/template"
 	"io/ioutil"
 	"net/http"
 	// "reflect"
+	_ "github.com/mattn/go-sqlite3"
 	"regexp"
 	"strings"
+	// "time"
+	"log"
+	"strconv"
 )
 
 var validPath = regexp.MustCompile("^/(edit|save|view|index)/([a-zA-Z0-9]+)$")
@@ -19,6 +24,60 @@ type Page struct {
 	Title string
 	Body  []byte
 }
+
+type Quote struct {
+	Id   int
+	Body string
+	// Author    string
+	// Submitter string
+	// Submitted time
+	Tags []string
+}
+
+var db, dberr = sql.Open("sqlite3", "./quotes.db")
+
+func sqliteDbInit() {
+	var err
+	if dberr != nil {
+		fmt.Println("dberr", dberr)
+		return
+	}
+	statement, _ := db.Prepare("CREATE TABLE IF NOT EXISTS quotes (id INTEGER PRIMARY KEY, body TEXT, tags TEXT)")
+	result, err := statement.Exec()
+	// new q
+	defer statement.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("result", result)
+
+	statement, _ = db.Prepare("INSERT INTO quotes (body, tags) VALUES (?, ?)")
+	_, err = statement.Exec("blah test blah", "test")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer statement.Close()
+	rows, err := db.Query("SELECT id, body, tags FROM quotes")
+	if err != nil {
+		log.Fatal(err)
+	}
+	var id int
+	var body string
+	var tags string
+	for rows.Next() {
+		rows.Scan(&id, &body, &tags)
+		fmt.Println(strconv.Itoa(id) + ": " + body + " " + tags)
+	}
+}
+
+// func loadQuoteId(id int) (*Quote, error) {
+// 	// load quote id
+// 	return
+// }
+
+// func (q *Quote) save() error {
+// 	// save quote to sql db
+// }
 
 func (p *Page) save() error {
 	filename := "pages/" + p.Title + ".txt"
@@ -116,38 +175,8 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 	}
 }
 
-var client = redis.NewClient(&redis.Options{
-	Addr:     "localhost:6379",
-	Password: "", // no password set
-	DB:       1,  // use default DB
-})
-
-func redisCmds() {
-	// client := redis.NewClient(&redis.Options{
-	// 	Addr:     "localhost:6379",
-	// 	Password: "", // no password set
-	// 	DB:       1,  // use default DB
-	// })
-	// clientt := reflect.TypeOf(client).Kind()
-	// fmt.Println(clientt)
-	pong, err := client.Ping().Result()
-	fmt.Println(pong, err)
-	err = client.Set("key", "value", 0).Err()
-	if err != nil {
-		panic(err)
-	}
-	// list keys
-	keys, _ := client.Keys("*").Result()
-	fmt.Println("keys", keys)
-	fmt.Println("values", len(keys))
-	for _, k := range keys {
-		value, _ := client.Get(k).Result()
-		fmt.Println(value)
-	}
-}
-
 func main() {
-	redisCmds()
+	sqliteDbInit()
 	http.HandleFunc(indexPage, indexHandler)
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
