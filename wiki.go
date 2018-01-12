@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	// "fmt"
+	"fmt"
 	"html/template"
 	"io/ioutil"
 	"net/http"
@@ -12,6 +12,7 @@ import (
 )
 
 var validPath = regexp.MustCompile("^/(edit|save|view|index)/([a-zA-Z0-9]+)$")
+var indexPage string = "/"
 
 type Page struct {
 	Title string
@@ -115,9 +116,10 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 }
 
 func main() {
-	http.HandleFunc("/index", indexHandler)
+	http.HandleFunc(indexPage, indexHandler)
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
+	fmt.Println("serving on :8080")
 	http.ListenAndServe(":8080", nil)
 }
