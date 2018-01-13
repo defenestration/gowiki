@@ -36,44 +36,76 @@ type Quote struct {
 
 var db, dberr = sql.Open("sqlite3", "./quotes.db")
 
-func sqliteDbInit() {
-	var err
-	if dberr != nil {
-		fmt.Println("dberr", dberr)
-		return
-	}
-	statement, _ := db.Prepare("CREATE TABLE IF NOT EXISTS quotes (id INTEGER PRIMARY KEY, body TEXT, tags TEXT)")
-	result, err := statement.Exec()
-	// new q
-	defer statement.Close()
+func checkErr(err error) {
 	if err != nil {
 		log.Fatal(err)
-	}
-	fmt.Println("result", result)
-
-	statement, _ = db.Prepare("INSERT INTO quotes (body, tags) VALUES (?, ?)")
-	_, err = statement.Exec("blah test blah", "test")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer statement.Close()
-	rows, err := db.Query("SELECT id, body, tags FROM quotes")
-	if err != nil {
-		log.Fatal(err)
-	}
-	var id int
-	var body string
-	var tags string
-	for rows.Next() {
-		rows.Scan(&id, &body, &tags)
-		fmt.Println(strconv.Itoa(id) + ": " + body + " " + tags)
 	}
 }
 
-// func loadQuoteId(id int) (*Quote, error) {
-// 	// load quote id
-// 	return
-// }
+func sqliteDbInit() {
+	checkErr(dberr)
+	statement, _ := db.Prepare("CREATE TABLE IF NOT EXISTS quotes (id INTEGER PRIMARY KEY, body TEXT, tags TEXT)")
+	result, err := statement.Exec()
+	defer statement.Close()
+	checkErr(err)
+	fmt.Println("result", result)
+	// newQuote("newwwww quote body", "tag, tag2, blah")
+}
+
+func newQuote(body string, tags string) {
+	// new q
+	statement, err := db.Prepare("INSERT INTO quotes (body, tags) VALUES (?, ?)")
+	checkErr(err)
+	_, err = statement.Exec(body, tags)
+	checkErr(err)
+	// fmt.Println("result", result)
+	defer statement.Close()
+	printQuotes()
+}
+
+func (q *Quote) save() error {
+	// edit an existing quote
+	stmt := "update quotes set body = ? tags = ? where id = ?"
+	statement, err := db.Prepare(stmt)
+	checkErr(err)
+	_, err = statement.Exec(q.Body, strings.Join(q.Tags, ", "), q.Id)
+	checkErr(err)
+	defer statement.Close()
+	return nil
+}
+
+func printQuotes() {
+	// check rows
+	rows, err := db.Query("SELECT id, body, tags FROM quotes")
+	checkErr(err)
+	// fmt.Println(db.Rows)
+	for rows.Next() {
+		var id int
+		var body string
+		var tags string
+		err = rows.Scan(&id, &body, &tags)
+		checkErr(err)
+		//convert tags to array
+		tagArr := strings.Split(tags, ", ")
+		fmt.Println(strconv.Itoa(id), body, tagArr)
+	}
+	q, _ := loadQuoteId(1)
+	fmt.Println(q.Body)
+}
+
+func loadQuoteId(id int) (*Quote, error) {
+	fmt.Println("id", id)
+	row, err := db.Prepare("select id, body, tags from quotes where id = ?")
+	checkErr(err)
+	// var id int
+	var body string
+	var t string
+	err = row.QueryRow(id).Scan(&id, &body, &t)
+	checkErr(err)
+	var tags = strings.Split(t, ", ")
+	fmt.Println(body, tags)
+	return &Quote{Id: id, Body: body, Tags: tags}, nil
+}
 
 // func (q *Quote) save() error {
 // 	// save quote to sql db
